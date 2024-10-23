@@ -2,7 +2,9 @@ import { BadRequestException, Injectable, InternalServerErrorException, NotFound
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { ProductEntity } from './entities/product.entity';
-import { PaginationDto } from './dto/pagination.dto';
+import { PaginationDto } from '../common/dtos/pagination/pagination.dto';
+import { ResponseAllProducts } from './interfaces/response-products.interface';
+import { ManagerError } from 'src/common/errors/manage.error';
 
 @Injectable()
 export class ProductsService {
@@ -26,14 +28,35 @@ export class ProductsService {
     }
   }
 
-  findAll(paginationDto: PaginationDto) {
+  async findAll( paginationDto: PaginationDto):Promise< ResponseAllProducts > {
     try {
-      const product = this.product.find(product => product.isActive === true)
-      if(!product) throw new NotFoundException('No products')
 
-      if(product) return this.product
+      if( this.product.length === 0 ){
+        throw new ManagerError({
+          type: "NOT_FOUND",
+          message: "Products not found!"
+        });
+      }
+    
+      const { page, limit } = paginationDto;
+      const total = this.product.filter((product) => product.isActive===true).length
+
+      const skip = ( page - 1 ) * limit;
+
+      const lastPage = Math.ceil(total / limit);
+      
+      const data = this.product.slice( skip, limit );
+
+      return {
+        page,
+        lastPage,
+        total,
+        limit,
+        data
+      }
+      
     } catch (error) {
-      throw new InternalServerErrorException('500 Server Error')
+      ManagerError.createSignatureError( error.message )
     }
   }
 
